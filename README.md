@@ -1,6 +1,6 @@
 # umlS24
 umlS24 devops
 
-change18 for demo
+change18 demo
 
 
