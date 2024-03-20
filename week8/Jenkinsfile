@@ -42,9 +42,9 @@ spec:
 
     stage('Prepare Environment') {
       container('gradle') {
-        sh '''
 	sh 'pwd'
-	sh 'ls -la'
+        sh 'ls -la'
+        sh '''
         cd Chapter08/sample1
         chmod +x gradlew
         '''
