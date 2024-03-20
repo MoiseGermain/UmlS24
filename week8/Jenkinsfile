@@ -1,74 +1,90 @@
-
-
 podTemplate(yaml: '''
-    apiVersion: v1
-    kind: Pod
-    spec:
-      containers:
-      - name: gradle
-        image: gradle
-        command:
-        - sleep
-        args:
-        - 99d
-        volumeMounts:
-        - name: shared-storage
-          mountPath: /mnt        
-      - name: kaniko
-        image: gcr.io/kaniko-project/executor:debug
-        command:
-        - sleep
-        args:
-        - 9999999
-        volumeMounts:
-        - name: shared-storage
-          mountPath: /mnt
-        - name: kaniko-secret
-          mountPath: /kaniko/.docker
-      restartPolicy: Never
-      volumes:
-      - name: shared-storage
-        persistentVolumeClaim:
-          claimName: jenkins-pv-claim
-      - name: kaniko-secret
-        secret:
-            secretName: dockercred
-            items:
-            - key: .dockerconfigjson
-              path: config.json
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: gradle
+    image: gradle
+    command:
+    - sleep
+    args:
+    - 99d
+    volumeMounts:
+    - name: shared-storage
+      mountPath: /mnt        
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    command:
+    - sleep
+    args:
+    - 9999999
+    volumeMounts:
+    - name: shared-storage
+      mountPath: /mnt
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker
+  restartPolicy: Never
+  volumes:
+  - name: shared-storage
+    persistentVolumeClaim:
+      claimName: jenkins-pv-claim
+  - name: kaniko-secret
+    secret:
+        secretName: dockercred
+        items:
+        - key: .dockerconfigjson
+          path: config.json
 ''') {
   node(POD_LABEL) {
-    stage('Build a gradle project') {
-      git 'https://github.com/dlambrig/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+    stage('Checkout') {
+      git 'https://github.com/MoiseGermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+    }
+
+    stage('Prepare Environment') {
       container('gradle') {
-        stage('Build a gradle project') {
+        sh '''
+        cd Chapter08/sample1
+        chmod +x gradlew
+        '''
+        // Conditional logic based on branch
+        if (env.BRANCH_NAME == 'main') {
           sh '''
-          cd Chapter08/sample1
           sed -i 's/minimum = 0.2/minimum = 0.1/' build.gradle
+          '''
+        } else {
+          sh '''
           sed -i '/checkstyle {/,/}/d' build.gradle 
           sed -i '/checkstyle/d' build.gradle 
-          cat build.gradle
-          chmod +x gradlew
-          ./gradlew build
-          mv ./build/libs/calculator-0.0.1-SNAPSHOT.jar /mnt
           '''
         }
+        echo 'Adjusted build.gradle based on branch'
       }
     }
 
-    stage('Build Java Image') {
-      container('kaniko') {
-        stage('Build a gradle project') {
+    stage('Build') {
+      container('gradle') {
+        sh './gradlew build'
+        sh 'mv ./build/libs/calculator-0.0.1-SNAPSHOT.jar /mnt'
+      }
+    }
+
+    stage('Build and Push Docker Image') {
+      // Conditional logic to build image only if branch is not 'playground'
+      if (env.BRANCH_NAME != 'playground') {
+        container('kaniko') {
+          // Set image name based on branch
+          imageName = (env.BRANCH_NAME == 'release') ? 'calculator' : 'calculator-' + env.BRANCH_NAME
+          imageVersion = (env.BRANCH_NAME == 'release') ? '1.0' : '0.1'
+
           sh '''
           echo 'FROM openjdk:8-jre' > Dockerfile
           echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
           echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
           mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
-          /kaniko/executor --context `pwd` --destination dlambrig/hello-kaniko:1.0
+          /kaniko/executor --context `pwd` --destination mogermain/calculator :1.0
           '''
         }
       }
     }
-
   }
 }
