@@ -69,7 +69,7 @@ pipeline {
     success {
       script {
         echo "Post success script: " + env.BRANCH_NAME
-        if ( env.BRANCH_NAME == 'master' ) {
+        if ( env.BRANCH_NAME == 'main' ) {
           echo "Create container repository/calculator:1.0"
 
           container('kaniko') {
