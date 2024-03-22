@@ -37,12 +37,15 @@ spec:
 ''') {
   node(POD_LABEL) {
     stage('Checkout') {
-      git 'https://github.com/MoiseGermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+      checkout scm: [$class: 'GitSCM', userRemoteConfigs: [[url: 'https://github.com/MoiseGermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git']], branches: [[name: "*/${BRANCH_NAME}"]]]
+      sh 'git branch'
+      sh 'git checkout ${BRANCH_NAME}'
+      sh 'ls -lah'
     }
 
     stage('Prepare Environment') {
       container('gradle') {
-	sh 'pwd'
+        sh 'pwd'
         sh 'ls -la'
         sh '''
         cd Chapter08/sample1
@@ -55,8 +58,8 @@ spec:
           '''
         } else {
           sh '''
-          sed -i '/checkstyle {/,/}/d' build.gradle 
-          sed -i '/checkstyle/d' build.gradle 
+          sed -i '/checkstyle {/,/}/d' build.gradle
+          sed -i '/checkstyle/d' build.gradle
           '''
         }
         echo 'Adjusted build.gradle based on branch'
@@ -83,7 +86,7 @@ spec:
           echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
           echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
           mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
-          /kaniko/executor --context `pwd` --destination mogermain/calculator :1.0
+          /kaniko/executor --context `pwd` --destination mogermain/${imageName}:${imageVersion}
           '''
         }
       }
