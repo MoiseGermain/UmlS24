@@ -1,89 +1,85 @@
-podTemplate(yaml: '''
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: gradle
-    image: gradle
-    command: ['sleep']
-    args: ['99d']
-    volumeMounts:
-    - name: shared-storage
-      mountPath: /mnt
-  - name: kaniko
-    image: gcr.io/kaniko-project/executor:debug
-    command: ['sleep']
-    args: ['9999999']
-    volumeMounts:
-    - name: shared-storage
-      mountPath: /mnt
-    - name: kaniko-secret
-      mountPath: /kaniko/.docker
-  restartPolicy: Never
-  volumes:
-  - name: shared-storage
-    persistentVolumeClaim:
-      claimName: jenkins-pv-claim
-  - name: kaniko-secret
-    secret:
-      secretName: dockercred
-      items:
-      - key: .dockerconfigjson
-        path: config.json
-''') {
-    node(POD_LABEL) {
-        stage('Checkout') {
-            checkout scm: [
-                $class: 'GitSCM', 
-                branches: [[name: '*/main']], 
-                userRemoteConfigs: [[url: 'https://github.com/MoiseGermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git']]
-            ]
-        }
+pipeline {
+  agent {
+    kubernetes {
+      yaml """
+                apiVersion: v1
+                kind: Pod
+                spec:
+                  containers:
+                  - name: gradle
+                    image: gradle
+                    command:
+                    - sleep
+                    args:
+                    - 99d
+                    volumeMounts:
+                    - name: shared-storage
+                      mountPath: /mnt        
+                  - name: kaniko
+                    image: gcr.io/kaniko-project/executor:debug
+                    command:
+                    - sleep
+                    args:
+                    - 9999999
+                    volumeMounts:
+                    - name: shared-storage
+                      mountPath: /mnt
+                    - name: kaniko-secret
+                      mountPath: /kaniko/.docker
+                  restartPolicy: Never
+                  volumes:
+                  - name: shared-storage
+                    persistentVolumeClaim:
+                      claimName: jenkins-pv-claim
+                  - name: kaniko-secret
+                    secret:
+                        secretName: dockercred
+                        items:
+                        - key: .dockerconfigjson
+                          path: config.json
+            """
+       }
+  }
+  stages {
+    stage('Checkout code AND run tests') {
 
-        stage('Prepare Environment') {
-            container('gradle') {
-                sh 'pwd'
-                sh 'ls -lah'
-                sh '''
-                cd Chapter08/sample1
-                chmod +x gradlew
-                '''
-                // Conditional logic based on branch
-                if (env.BRANCH_NAME == 'main') {
-                    sh 'sed -i \'s/minimum = 0.2/minimum = 0.1/\' build.gradle'
-                } else {
-                    sh 'sed -i \'/checkstyle {/,/}/d\' build.gradle'
-                    sh 'sed -i \'/checkstyle/d\' build.gradle'
-                }
-                echo 'Adjusted build.gradle based on branch'
-            }
-        }
+      steps {
+       script {
 
-        stage('Build') {
-            container('gradle') {
-                sh '''
-                ./gradlew build
-                mv ./build/libs/calculator-0.0.1-SNAPSHOT.jar /mnt
-                '''
-            }
-        }
+          // For testing as a normal pipeline, I am setting this manually. A multibranch will have this set already when the pull request (for example) triggers.
+          env.BRANCH_NAME = "master"
+        }          
 
-        stage('Build and Push Docker Image') {
-            // Conditional logic to build image only if branch is not 'playground'
-            if (env.BRANCH_NAME != 'playground') {
-                container('kaniko') {
-                    // Set image name based on branch
-                    def imageName = (env.BRANCH_NAME == 'release') ? 'calculator' : 'calculator-' + env.BRANCH_NAME
-                    def imageVersion = (env.BRANCH_NAME == 'release') ? '1.0' : '0.1'
-                    sh """
-                    echo 'FROM openjdk:8-jre' > Dockerfile
-                    echo 'COPY ./calculator-0.0.1-SNAPSHOT.jar app.jar' >> Dockerfile
-                    echo 'ENTRYPOINT ["java", "-jar", "app.jar"]' >> Dockerfile
-                    mv /mnt/calculator-0.0.1-SNAPSHOT.jar .
-                    /kaniko/executor --context `pwd` --destination moisegermain/calender:1.0
-                    """
-                }
-            }
+        git url: 'https://github.com/moisegermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+        container('gradle') {
+
+        sh """
+          cd Chapter08/sample1
+          chmod +x gradlew
+          // compile and test
+
+        """
+
         }
+      }
     }
+  }
+  
+  post {
+    success {
+      script {
+        echo "Post success script: " + env.BRANCH_NAME
+        if ( env.BRANCH_NAME == 'master' ) {
+          echo "Create container repository/calculator:1.0"
+
+          container('kaniko') {
+                    sh '''
+                    echo IN KANIKO CONTAINER
+                    '''
+                }
+
+        }
+      }
+    }
+  }
 }
