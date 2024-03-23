@@ -52,7 +52,10 @@ pipeline {
                           ./gradlew test
                           """
                         if (env.BRANCH_NAME == 'main') {
-                            sh './gradlew codeCoverage'
+                        sh """
+                          cd Chapter08/sample1
+                          ./gradlew codeCoverage
+                          """
                         }
                     }
                 }
