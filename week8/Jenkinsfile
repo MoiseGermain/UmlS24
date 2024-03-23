@@ -1,7 +1,7 @@
 pipeline {
-  agent {
-    kubernetes {
-      yaml """
+    agent {
+        kubernetes {
+            yaml """
                 apiVersion: v1
                 kind: Pod
                 spec:
@@ -38,48 +38,46 @@ pipeline {
                         - key: .dockerconfigjson
                           path: config.json
             """
-       }
-  }
-  stages {
-    stage('Checkout code AND run tests') {
-
-      steps {
-       script {
-
-          // For testing as a normal pipeline, I am setting this manually. A multibranch will have this set already when the pull request (for example) triggers.
-          env.BRANCH_NAME = "master"
-        }          
-
-        git url: 'https://github.com/moisegermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
-        container('gradle') {
-
-        sh """
-          cd Chapter08/sample1
-          chmod +x gradlew
-          // compile and test
-
-        """
-
         }
-      }
     }
-  }
-  
-  post {
-    success {
-      script {
-        echo "Post success script: " + env.BRANCH_NAME
-        if ( env.BRANCH_NAME == 'master' ) {
-          echo "Create container repository/calculator:1.0"
-
-          container('kaniko') {
-                    sh '''
-                    echo IN KANIKO CONTAINER
-                    '''
+    stages {
+        stage('Checkout code AND run tests') {
+            steps {
+                git url: 'https://github.com/moisegermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+                container('gradle') {
+                    sh """
+                      cd Chapter08/sample1
+                      chmod +x gradlew
+                      ./gradlew test
+                      """
+                    // Conditional test execution
+                    if (env.BRANCH_NAME == 'main') {
+                        sh './gradlew codeCoverage'
+                    }
                 }
-
+            }
         }
-      }
     }
-  }
+    post {
+        success {
+            script {
+                if (env.BRANCH_NAME == 'feature') {
+                    echo "Create container repository/calculator-feature:0.1"
+                    container('kaniko') {
+                        sh """
+                        # Commands to build and push the container image for feature branch
+                        """
+                    }
+                } else if (env.BRANCH_NAME == 'main') {
+                    echo "Create container repository/calculator:1.0"
+                    container('kaniko') {
+                        sh """
+                        # Commands to build and push the container image for main branch
+                        """
+                    }
+                }
+                // No container is built for the 'playground' branch
+            }
+        }
+    }
 }
