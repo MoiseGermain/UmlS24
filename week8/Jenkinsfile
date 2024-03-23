@@ -69,7 +69,7 @@ pipeline {
                     echo "Creating container for main branch: repository/calculator:1.0"
                     // Implement the logic to build and push the Docker image for the main branch
                 }
-                // No container is built for the 'playground' branch as per the conditions
+                // No container is built for the 'playground' branch
             }
         }
     }
