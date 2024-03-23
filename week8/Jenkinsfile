@@ -14,7 +14,7 @@ pipeline {
                     - 99d
                     volumeMounts:
                     - name: shared-storage
-                      mountPath: /mnt        
+                      mountPath: /mnt
                   - name: kaniko
                     image: gcr.io/kaniko-project/executor:debug
                     command:
@@ -45,14 +45,15 @@ pipeline {
             steps {
                 git url: 'https://github.com/moisegermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
                 container('gradle') {
-                    sh """
-                      cd Chapter08/sample1
-                      chmod +x gradlew
-                      ./gradlew test
-                      """
-                    // Conditional test execution
-                    if (env.BRANCH_NAME == 'main') {
-                        sh './gradlew codeCoverage'
+                    script {
+                        sh """
+                          cd Chapter08/sample1
+                          chmod +x gradlew
+                          ./gradlew test
+                          """
+                        if (env.BRANCH_NAME == 'main') {
+                            sh './gradlew codeCoverage'
+                        }
                     }
                 }
             }
@@ -62,21 +63,13 @@ pipeline {
         success {
             script {
                 if (env.BRANCH_NAME == 'feature') {
-                    echo "Create container repository/calculator-feature:0.1"
-                    container('kaniko') {
-                        sh """
-                        # Commands to build and push the container image for feature branch
-                        """
-                    }
+                    echo "Creating container for feature branch: repository/calculator-feature:0.1"
+                    // Implement the logic to build and push the Docker image for the feature branch
                 } else if (env.BRANCH_NAME == 'main') {
-                    echo "Create container repository/calculator:1.0"
-                    container('kaniko') {
-                        sh """
-                        # Commands to build and push the container image for main branch
-                        """
-                    }
+                    echo "Creating container for main branch: repository/calculator:1.0"
+                    // Implement the logic to build and push the Docker image for the main branch
                 }
-                // No container is built for the 'playground' branch
+                // No container is built for the 'playground' branch as per the conditions
             }
         }
     }
