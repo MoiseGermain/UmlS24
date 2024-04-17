@@ -1,6 +1,9 @@
 podTemplate(yaml: '''
     apiVersion: v1
     kind: Pod
+    metadata:
+      annotations:
+        jenkins.jvm.options: "-Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
     spec:
       containers:
       - name: cloud-sdk
@@ -16,7 +19,9 @@ podTemplate(yaml: '''
           mountPath: /var/secrets/google
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /var/secrets/google/devops-msit-005330-1a293cb7f135.json        
+          value: /var/secrets/google/devops-msit-005330-1a293cb7f135.json
+        - name: JAVA_OPTS
+          value: "-Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
       restartPolicy: Never
       volumes:
       - name: shared-storage
@@ -24,7 +29,7 @@ podTemplate(yaml: '''
           claimName: jenkins-pv-claim
       - name: google-cloud-key
         secret:
-          secretName: sdk-key          
+          secretName: sdk-key
 ''') {
   node(POD_LABEL) {
     stage('Deploying to prod') {
@@ -35,7 +40,7 @@ podTemplate(yaml: '''
           kubectl get ns
           echo $GOOGLE_APPLICATION_CREDENTIALS
           gcloud auth login --cred-file=$GOOGLE_APPLICATION_CREDENTIALS --no-launch-browser
-          gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330 
+          gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330
           echo 'namespaces in the prod environment'
           kubectl get ns
           '''
@@ -44,3 +49,4 @@ podTemplate(yaml: '''
     }
   }
 }
+
