@@ -33,6 +33,8 @@ podTemplate(yaml: '''
         echo 'Checking access to staging environment'
         kubectl get ns
         echo "Starting Smoke Test for the staging environment"
+        cd Chapter09/sample3
+        chmod +x gradlew
         ./gradlew smokeTest -Dcalculator.url=http://calculator-service.staging.svc.cluster.local:8080
         '''
       }
