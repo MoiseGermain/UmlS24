@@ -26,33 +26,38 @@ podTemplate(yaml: '''
         secret:
           secretName: sdk-key          
 ''') {
-  node(POD_LABEL) {
-    stage('Smoke Test on Staging') {
-      container('cloud-sdk') {
-        sh '''
-        echo 'Checking access to staging environment'
-        kubectl get ns
-        echo "Starting Smoke Test for the staging environment"
-        cd Chapter09/sample3
-        chmod +x gradlew
-        ./gradlew smokeTest -Dcalculator.url=http://calculator-service.staging.svc.cluster.local:8080
-        '''
-      }
-    }
-    stage('Deploying to Prod') {
-      container('cloud-sdk') {
-        stage('Build a gradle project') {
-          sh '''
-          echo 'namespaces in the staging environment'
-          kubectl get ns
-          echo $GOOGLE_APPLICATION_CREDENTIALS
-          gcloud auth login --cred-file=$GOOGLE_APPLICATION_CREDENTIALS --no-launch-browser
-          gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330 
-          echo 'namespaces in the prod environment'
-          kubectl get ns
-          '''
+    node(POD_LABEL) {
+        stage('Staging') {
+            try {
+                stage('Smoke test') {
+                    container('gradle') {
+                        git 'https://github.com/MoiseGermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+                        sh '''
+                            cd Chapter08/sample1
+                            chmod +x ./gradlew
+                            ./gradlew smokeTest -Dcalculator.url=http://calculator-service.staging.svc.cluster.local:8080
+                        '''
+                    }
+                }
+            } catch (Exception e) {
+                error('staging tests failed')
+            }
+
+            stage('Deploy to GKE') {
+                container('cloud-sdk') {
+                    stage('Build a gradle project') {
+                        sh '''
+                            echo 'namespaces in the staging environment'
+                            kubectl get ns
+                            echo $GOOGLE_APPLICATION_CREDENTIALS
+                            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                            gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330 
+                            echo 'namespaces in the prod environment'
+                            kubectl get ns
+                        '''
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }
