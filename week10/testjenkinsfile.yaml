@@ -1,9 +1,6 @@
 podTemplate(yaml: '''
     apiVersion: v1
     kind: Pod
-    metadata:
-      annotations:
-        jenkins.jvm.options: "-Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
     spec:
       containers:
       - name: cloud-sdk
@@ -19,9 +16,7 @@ podTemplate(yaml: '''
           mountPath: /var/secrets/google
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /var/secrets/google/devops-msit-005330-1a293cb7f135.json
-        - name: JAVA_OPTS
-          value: "-Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true"
+          value: /var/secrets/google/devops-msit-005330-1a293cb7f135.json        
       restartPolicy: Never
       volumes:
       - name: shared-storage
@@ -29,10 +24,20 @@ podTemplate(yaml: '''
           claimName: jenkins-pv-claim
       - name: google-cloud-key
         secret:
-          secretName: sdk-key
+          secretName: sdk-key          
 ''') {
   node(POD_LABEL) {
-    stage('Deploying to prod') {
+    stage('Smoke Test on Staging') {
+      container('cloud-sdk') {
+        sh '''
+        echo 'Checking access to staging environment'
+        kubectl get ns
+        echo "Starting Smoke Test for the staging environment"
+        ./gradlew smokeTest -Dcalculator.url=http://calculator-service.staging.svc.cluster.local:8080
+        '''
+      }
+    }
+    stage('Deploying to Prod') {
       container('cloud-sdk') {
         stage('Build a gradle project') {
           sh '''
@@ -40,7 +45,7 @@ podTemplate(yaml: '''
           kubectl get ns
           echo $GOOGLE_APPLICATION_CREDENTIALS
           gcloud auth login --cred-file=$GOOGLE_APPLICATION_CREDENTIALS --no-launch-browser
-          gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330
+          gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330 
           echo 'namespaces in the prod environment'
           kubectl get ns
           '''
@@ -49,4 +54,3 @@ podTemplate(yaml: '''
     }
   }
 }
-
