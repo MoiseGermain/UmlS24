@@ -16,7 +16,13 @@ podTemplate(yaml: '''
           mountPath: /var/secrets/google
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /var/secrets/google/devops-msit-005330-1a293cb7f135.json        
+          value: /var/secrets/google/devops-msit-005330-1a293cb7f135.json
+      - name: gradle
+        image: gradle:jdk11
+        command:
+        - sleep
+        args:
+        - 9999999
       restartPolicy: Never
       volumes:
       - name: shared-storage
@@ -24,7 +30,7 @@ podTemplate(yaml: '''
           claimName: jenkins-pv-claim
       - name: google-cloud-key
         secret:
-          secretName: sdk-key          
+          secretName: sdk-key
 ''') {
     node(POD_LABEL) {
         stage('Staging') {
@@ -51,7 +57,7 @@ podTemplate(yaml: '''
                             kubectl get ns
                             echo $GOOGLE_APPLICATION_CREDENTIALS
                             gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-                            gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330 
+                            gcloud container clusters get-credentials hello-cluster --region us-central1 --project devops-msit-005330
                             echo 'namespaces in the prod environment'
                             kubectl get ns
                         '''
