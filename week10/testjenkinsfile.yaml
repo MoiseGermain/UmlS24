@@ -31,11 +31,11 @@ podTemplate(yaml: '''
             try {
                 stage('Smoke test') {
                     container('gradle') {
-                        git 'https://github.com/dlambrig/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+                        git 'https://github.com/moisegermain/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
                         sh '''
                             cd Chapter08/sample1
                             chmod +x ./gradlew
-                            ./gradlew smokeTest -Dcalculator.url=http://calculator-service.devops-tools.svc.cluster.local:8080
+                            ./gradlew smokeTest -Dcalculator.url=http://calculator-service.staging.svc.cluster.local:8080
                         '''
                     }
                 }
